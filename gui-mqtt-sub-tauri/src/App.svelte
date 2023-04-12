@@ -7,9 +7,12 @@
 
     let readDataUrl = (readApiKey, channelID) => ( `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${readApiKey}`);
 
+    const options = { dateStyle: 'medium', timeStyle: 'short'};
+
     let cleanDate = (date) => {
+        
         const newDate = new Date(date);
-        return (newDate.toDateString());
+        return (newDate.toLocaleString("en-IN", options));
     }
 
     let promise = axios.get(readDataUrl(readApiKey, channelID));
