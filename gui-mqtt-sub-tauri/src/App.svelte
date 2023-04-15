@@ -1,13 +1,42 @@
 <script>
-    import Greet from './lib/Greet.svelte'
     import axios from 'axios';
+    import {connect} from 'mqtt/dist/mqtt.min';
+
+    import { subdata } from './lib/subdata.js';
     let readApiKey = 'UZSQG60FK8RA0ANW';
     let channelID = '2088972';
-    // let readDataUrl = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${readApiKey}`;
+
+    let toEpoch = (timestamp) => {
+        let date = new Date(timestamp);
+        return date.getTime();
+    }
 
     let readDataUrl = (readApiKey, channelID) => ( `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${readApiKey}`);
 
     const options = { dateStyle: 'medium', timeStyle: 'short'};
+
+    const url = 'ws://mqtt3.thingspeak.com:80/mqtt'
+
+    const mqtt_options = {
+        clean: true,
+        connectTimeout: 4000,
+        username:'IjUVEwcKGjglLBIEMg0KABU',
+        clientId:'IjUVEwcKGjglLBIEMg0KABU',
+        password:'gygPM9XqkckFb9BWgJPy2SAg',
+    }
+    const client  = connect(url, mqtt_options)
+    client.on('connect', () => {
+        console.log('connected')
+        client.subscribe(`channels/${channelID}/subscribe`, () => {
+            console.log('subscribed to channel');
+        })
+    })
+
+    client.on('message', function (topic, message) {
+        // extradata.push(JSON.parse(message.toString()))
+        subdata.update(records => ([JSON.parse(message.toString()), ...records]))
+        // console.log(extradata)
+    })
 
     let cleanDate = (date) => {
         
@@ -16,6 +45,9 @@
     }
 
     let promise = axios.get(readDataUrl(readApiKey, channelID));
+        /* <button on:click={() => (promise = axios.get(readDataUrl(readApiKey, channelID)))}>
+            <span class="material-symbols-rounded"> refresh </span>
+        </button> */
 </script>
 
 <main class="font-roboto-flex">
@@ -25,19 +57,38 @@
             <span>API Key:</span> <input placeholder="Enter your read API key" bind:value={readApiKey}/>
             <span>Channel ID:</span> <input placeholder="Enter your Channel ID" bind:value={channelID}/>
         </div>
-        <button on:click={() => (promise = axios.get(readDataUrl(readApiKey, channelID)))}>
-            <span class="material-symbols-rounded"> refresh </span>
-        </button>
     </div>
     <div class="card">
         <span> Entry </span>
         <span> Time </span>
         <span> Temp <span class="material-symbols-rounded"> device_thermostat </span> </span>
         <span> Hum <span class="material-symbols-rounded"> humidity_percentage </span> </span>
+    </div>
+        {#each $subdata as records}
+            <div class="card">
+                    <span> {records.entry_id}  </span> 
+                    <span> {cleanDate(records.created_at)} </span>
+                    <span> 
+                        {#if records.field1 == null}
+                            <span style="opacity: 0.2">-</span>
+                        {:else}
+                            {records.field1} &#8451;
+                        {/if}       
+                    </span>
+                    <span> 
+                        {#if records.field2 == null}
+                            <span style="opacity: 0.2">-</span>
+                        {:else}
+                            {records.field2} %
+                        {/if}       
+                    </span>
+                </div>
+            {/each}
         {#await promise}
             loading...
         {:then json}
-                {#each json.data.feeds as records}
+                {#each json.data.feeds.reverse() as records}
+                <div class="card">
                         <span> {records.entry_id}  </span> 
                         <span> {cleanDate(records.created_at)} </span>
                         <span> 
@@ -48,15 +99,15 @@
                             {/if}       
                         </span>
                         <span> 
-                            {#if records.field1 == null}
+                            {#if records.field2 == null}
                                 <span style="opacity: 0.2">-</span>
                             {:else}
                                 {records.field2} %
                             {/if}       
                         </span>
+                    </div>
                 {/each}
         {/await}
-    </div>
 </main>
 
 <style>
